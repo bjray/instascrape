@@ -1,0 +1,3 @@
+#ignore espresso project file and mac-specific files
+*.esproj
+.DS_Store
