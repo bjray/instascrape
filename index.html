@@ -21,6 +21,7 @@
 	<link rel="stylesheet" href="stylesheets/base.css">
 	<link rel="stylesheet" href="stylesheets/skeleton.css">
 	<link rel="stylesheet" href="stylesheets/layout.css">
+	<link rel="stylesheet" href="stylesheets/lightbox.css">
 
 	<!--[if lt IE 9]>
 			<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
@@ -28,7 +29,8 @@
 	
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js"></script>
-
+	<script src="js/lightbox.js"></script>
+	
 	<!-- Favicons
 	================================================== -->
 	<link rel="shortcut icon" href="images/favicon.ico">
@@ -51,17 +53,22 @@
 			<img src="./images/round-logo.png" alt="" />
 		</div>
 		<div class="fourteen columns">
-			<h1 class="remove-bottom jna">JNA: Instagram Scrapper</h1>
+			<h1 class="remove-bottom jna">JNA: Instagram Scraper</h1>
 			<div style="margin-top: 10px">
 				<h5 class="left">Version 0.3</h5><div class="right" id="tokenLabel">using token: </div>
 			</div>
 		</div>
 		<hr />
 		<div class="one-third column">
-			<h5 class="jna">Select an Instagram User:</h5>
+			<h5 class="jna">Enter an Instagram User:</h5>
 			<div id="userSearchContainer">
 				<input type="text" name="userName" id="userName" placeholder="Instagram user name..." />
 				<a href="#" class="button prefix" id="searchUser">Search</a>
+			</div>
+			<h5 class="jna">Enter an image id:</h5>
+			<div id="imageSearchContainer">
+				<input type="text" name="imageId" id="imageId" placeholder="Instagram image id..." />
+				<a href="#" class="button prefix" id="searchImage">Search</a>
 			</div>
 		</div>
 		<div class="one-third column">
@@ -76,6 +83,7 @@
 			<div id="panel" class="insta"></div>
 		</div>
 		<div class="four columns">
+			<div id="commentsExport" class="insta small"></div>
 			<div id="mediaComments" class="insta small" ></div>
 		</div>
 		<div class="sixteen columns" id="footer">
@@ -93,18 +101,25 @@
    	//initializing variables...
    	var access_token = '23196669.1fb234f.bc3cae7446e549e0907701de12888236';
    	
+   	var Action = {
+   		USER_ID_SEARCH: 0,
+   		MEDIA_ID_SEARCH: 1,
+   		BOTH: 2
+   	};
    	
-   	//initialize controls...
+//-------------------------------------
+// initialize controls...
+//-------------------------------------
    	$("#tokenLabel").append("<span class=\"radius secondary label\">" + access_token + "</span>");
 
    	$("#searchUser").click(function() {
    		var userName = $("#userName").val();
 //   	  $( "#searchProgressBar" ).progressbar( "option", "value", false );
-			if (userName.length == 0) {
-				$("#foundUser").append("<span class=\"round alert label\">User Name Invalid</span>");
-			} else {
-				clearContent();
+			if (userName.length > 0) {
+				clearContent(Action.USER_ID_SEARCH);
 				searchForUser(userName);
+			} else {
+				$("#foundUser").append("<span class=\"round alert label\">User Name Invalid</span>");
 			}
    	});
    	
@@ -117,12 +132,32 @@
    	    }    
    	});
    	
+   	$("#searchImage").click(function() {
+   		var imageId = $("#imageId").val();
+   		if (imageId.length > 0) {
+   			clearContent(Action.MEDIA_ID_SEARCH);
+   			getMediaById(imageId, displayMediaData);
+   		} else {
+//	   		$("#foundUser").append("<span class=\"round alert label\">User Name Invalid</span>");
+   		}
+   	});
    	
-   	//start method declarations...
-   	function clearContent() {
+//-------------------------------------
+// start method declarations...
+//-------------------------------------
+   	function clearContent(exclude) {
    		$('.insta').each(function() {
    			$(this).empty();
    		});
+   		
+   		if (exclude == Action.USER_ID_SEARCH) {
+   			$('#imageId').val('');
+   		} else if (exclude == Action.MEDIA_ID_SEARCH) {
+   			$('#userName').val('');
+   		} else if (exclude == Action.BOTH) {
+   			$('#userName').val('');
+   			$('#imageId').val('');
+   		} 
    	}
    	
    	function toggleWait(selector) {
@@ -152,7 +187,7 @@
    				$("#mediaSearch").append("<a href=\"#\" class=\"button prefix\" id=\"recentMedia\">Get Recent Media</a>");
    				
    				$("#recentMedia").click(function() {
-   					getRecentMedia(user.id);
+   					getRecentMediaByUser(user.id, displayMediaData);
    				});
    				
    				$("#foundImg").append("<img src=\"" + user.profile_picture + "\">");
@@ -164,50 +199,73 @@
   		}
    	}
    	
-   	function getRecentMedia(userId) {
+   	
+   	
+   	function getMediaById(mediaId, callback) {
    		var param = {access_token:access_token};
-   		var cmdUrl = 'https://api.instagram.com/v1/users/' + userId + '/media/recent?callback=?';
-   		$.getJSON(cmdUrl, param, displayRecentMedia);
+   		var cmdUrl = "https://api.instagram.com/v1/media/" + mediaId + "?callback=?";
+   		$("#foundId").append("(<strong>Media Id</strong>: " + mediaId + ")");
+   		$.getJSON(cmdUrl, param, callback);
    	}
    	
-   	function displayRecentMedia(data) {
+   	function getRecentMediaByUser(userId, callback) {
+   		var param = {access_token:access_token};
+   		var cmdUrl = "https://api.instagram.com/v1/users/" + userId + "/media/recent?callback=?";
+   		$.getJSON(cmdUrl, param, callback);
+   	}
+   	
+   	function displayMediaData(data) {
    		if(data.meta.code == 200) {
-   			var nextUrl = data.pagination.next_url;
+   			var nextUrl = null;
+   			if (data.pagination != null) {
+   				nextUrl = data.pagination.next_url + "&callback=?";
+   			}
+   			
+				if( Object.prototype.toString.call( data.data ) != "[object Array]" ) {
+				  photos = [data.data];
+				} else {
+					photos = data.data;
+				}
+   			
 
-   			var photos = data.data;
    			if (photos.length > 0) {
+   				
    				for(var key in photos) {
    					var photo = photos[key];
-   					$('<div id=p' + photo.id + '></div>').addClass('photoWrapper').appendTo('#panel');
-   					                    
-   					var str = '<img id="' + photo.id + '" src="' + photo.images.thumbnail.url + '" width="100%">';
-   					$('<div></div>').addClass('photo').html(str).appendTo('#p' + photo.id);
+   					$("<div id=p" + photo.id + "></div>").addClass("photoWrapper").appendTo("#panel");
+   					
+   					var str = "<a href=\"" + photo.images.standard_resolution.url + "\" rel=\"lightbox\">";       
+   					str += "<img id=\"" + photo.id + "\" src=\"" + photo.images.thumbnail.url + "\" width=\"100%\"></a>";
+   					$("<div></div>").addClass("photo").html(str).appendTo("#p" + photo.id);
    					
 
    					str = 'comments: ' + photo.comments.count;   					
-   					$('<span class=\'clickable\' data-photo-id=\'' + photo.id + '\'></span>').html(str).appendTo('#p' + photo.id).click(function() {
+   					$("<span class=\"clickable\" data-photo-id=\"" + photo.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
 //   							Can't fugure out why every click action sends the same object...
 //   							displayCommentsForMedia(photo);
 //   							
-   							getCommentsForMedia($(this).attr('data-photo-id'));
+   							getCommentsForMedia($(this).attr("data-photo-id"));
    					});
    					
    					
-   					$('#' + photo.id).load(function() {
-   						$('#p' + $(this).attr('id')).fadeTo('slow', 1.0);
+   					$("#" + photo.id).load(function() {
+   						$("#p" + $(this).attr("id")).fadeTo("slow", 1.0);
    					});
    				}
-   				if(nextUrl.length > 0) {
-   					var prev = "";
-   					var next = "<a href=\"#\" id=\"nextLink\"class=\"button\">Next</a>";
-   					
-   					$("<div class=\"left\"  id=\"pagination\"></div>").appendTo("#panel");
-   					$("#pagination").append(next);
-   					
-   					$("#nextLink").click(function() {
-   						alert("nextLink: " + nextUrl);
-   					});
-   					
+
+   				if(nextUrl != null) {
+   					if (nextUrl.length > 0) {
+	   					var prev = "";
+	   					var next = "<a href=\"#\" id=\"nextLink\"class=\"button\">Next</a>";
+	   					
+	   					$("<div class=\"left\"  id=\"pagination\"></div>").appendTo("#panel");
+	   					$("#pagination").append(next);
+	   					
+	   					$("#nextLink").click(function() {
+	   						clearContent();
+		   					$.getJSON(nextUrl, displayMediaData);
+	   					});
+   					}
    				}
    			} else {
    				//something
@@ -217,9 +275,11 @@
    		}
    	}
    	
+   	
    	function getCommentsForMedia(id) {
    		//clear
    		$('#mediaComments').empty();
+   		$('#commentsExport').empty();
    		$('<h5>' + id + '</h5>').appendTo('#mediaComments');
 	   	var param = {access_token:access_token};
   	 	var cmdUrl = 'https://api.instagram.com/v1/media/' + id + '/comments?callback=?';
@@ -229,30 +289,59 @@
    	function displayCommentsForMedia(data) {
 			if(data.meta.code == 200) {
 				var comments = data.data;
-				for (var key in comments) {
-					var comment = comments[key];
-					var user = comment.from.username;
-					var fullname = comment.from.full_name;
-					var text = comment.text;
+				
+				if (comments.length > 0) {
+					$("#commentsExport").append("<a href=\"#\" class=\"button prefix\" id=\"exportComments\">Export Comments</a>");
+									
+					$("#exportComments").click(function() {
+						exportCommentsToCSV(comments);
+					});
 					
-					var str = "<div class=\"box\" id=\"" + comment.id + "\"><strong>Comment id: " + comment.id + "</strong>";
-					str += "<p><span class=\"title\">Full Name: </span><span class=\"contents\">" + fullname + "</span></p>";
-					str += "<p><span class=\"title\">User: </span><span class=\"contents\">" + user + "</span></p>";
-					str += "<p><span class=\"title\">Comments: </span><span class=\"contents\">" + text + "</span></p>";
-					str += "</div>";
-					
-//					$("<strong>Comment id: " + comment.id + "</strong>").appendTo('#mediaComments');
-//					var str = "<dl class=\"small\" id=\"c" + comment.id + "\"><dt>Full Name:</dt><dd>" + fullname + "</dd>";
-//					str += "<dt class=\"next\">User:</dt><dd>" + user + "</dd><dt class=\"next\">Comment:</dt><dd>" + text + "</dd></dl>";
-					
-					$(str).appendTo("#mediaComments");
+					for (var key in comments) {
+						var comment = comments[key];
+						var user = comment.from.username;
+						var fullname = comment.from.full_name;
+						var text = comment.text;
+						
+						var str = "<div class=\"box\" id=\"" + comment.id + "\"><strong>Comment id: " + comment.id + "</strong>";
+						str += "<p class=\"name\"><span class=\"title\">Full Name: </span><span class=\"contents\">" + fullname + "</span></p>";
+						str += "<p class=\"user\"><span class=\"title\">User: </span><span class=\"contents\">" + user + "</span></p>";
+						str += "<p class=\"text\"><span class=\"title\">Comments: </span><span class=\"contents\">" + text + "</span></p>";
+						str += "</div>";
+												
+						$(str).appendTo("#mediaComments");
+					}
+				} else {
+					$("#mediaComments").append("No comments for this image.");
 				}
 			} else {
 				//error ocurred...
 			}
    	}
    	
-		//End scripts
+   	function exportCommentsToCSV(comments) {
+   		var csv;
+   		csv = "Id,User,Fullname,Comment\n";
+   		
+   		for (var key in comments) {
+   			var comment = comments[key];
+   			var user = comment.from.username;
+   			var fullname = comment.from.full_name;
+   			var text = comment.text;
+   			
+   			csv += "\"" + comment.id + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
+   			
+   		}
+//	   	var csv = $table.table2CSV({delivery:'value'});
+	    window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(csv);
+   	}
+   	
+   	
+   	
+//-------------------------------------
+// End scripts...
+//-------------------------------------
+   	
    });
    
    
