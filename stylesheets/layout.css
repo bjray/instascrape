@@ -208,7 +208,7 @@ body.loading .modal {
 /* #Page Styles
 ================================================== */
 #panel { height: auto; float: right; width: 100%; }
-.photoWrapper { width: 170px; height: 210px; margin:2px; float:left; box-shadow: 0 2px 2px rgba(33, 33, 33, 0.4); display:none;}
+.photoWrapper { width: 170px; height: 220px; margin:2px; float:left; box-shadow: 0 2px 2px rgba(33, 33, 33, 0.4); display:none;}
 .photo { width: auto; height: auto; position: relative;
 }
 .clickable {

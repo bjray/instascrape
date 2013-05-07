@@ -85,8 +85,8 @@
 			<div id="panel" class="insta"></div>
 		</div>
 		<div class="four columns">
-			<div id="commentsExport" class="insta small"></div>
-			<div id="mediaComments" class="insta small" ></div>
+			<div id="infoExport" class="insta small"></div>
+			<div id="mediaInfo" class="insta small" ></div>
 		</div>
 		<div class="sixteen columns" id="footer">
 		</div>
@@ -351,10 +351,15 @@
    					str = 'comments: ' + photo.comments.count;   					
    					$("<span class=\"clickable\" data-photo-id=\"" + photo.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
 //   							Can't fugure out why every click action sends the same object...
-//   							displayCommentsForMedia(photo);
+//   							displayInfoForMedia(photo);
 //   							
    							getCommentsForMedia($(this).attr("data-photo-id"));
    					});
+   					
+   					str = 'likes: ' + photo.likes.count;
+   					$("<br /><span class=\"clickable\" data-photo-id=\"" + photo.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
+   							getLikesForMedia($(this).attr("data-photo-id"));
+   					}); 
    					
    					
    					$("#" + photo.id).load(function() {
@@ -385,12 +390,21 @@
    		}
    	}
    	
+   	function getLikesForMedia(id) {
+   		$('#mediaInfo').empty();
+   		$('#infoExport').empty();
+   		$('<h5>' + id + '</h5>').appendTo('#mediaInfo');
+   		var param = {access_token:access_token};
+   		var cmdUrl = 'https://api.instagram.com/v1/media/' + id + '/likes?callback=?';
+   		$.getJSON(cmdUrl, param, displayLikesForMedia);
+   	}
+   	
    	
    	function getCommentsForMedia(id) {
    		//clear
-   		$('#mediaComments').empty();
-   		$('#commentsExport').empty();
-   		$('<h5>' + id + '</h5>').appendTo('#mediaComments');
+   		$('#mediaInfo').empty();
+   		$('#infoExport').empty();
+   		$('<h5>' + id + '</h5>').appendTo('#mediaInfo');
 	   	var param = {access_token:access_token};
   	 	var cmdUrl = 'https://api.instagram.com/v1/media/' + id + '/comments?callback=?';
    		$.getJSON(cmdUrl, param, displayCommentsForMedia);
@@ -401,7 +415,7 @@
 				var comments = data.data;
 				
 				if (comments.length > 0) {
-					$("#commentsExport").append("<a href=\"#\" class=\"button prefix\" id=\"exportComments\">Export Comments</a>");
+					$("#infoExport").append("<a href=\"#\" class=\"button prefix\" id=\"exportComments\">Export</a>");
 									
 					$("#exportComments").click(function() {
 						exportCommentsToCSV(comments);
@@ -419,19 +433,50 @@
 						str += "<p class=\"text\"><span class=\"title\">Comments: </span><span class=\"contents\">" + text + "</span></p>";
 						str += "</div>";
 												
-						$(str).appendTo("#mediaComments");
+						$(str).appendTo("#mediaInfo");
 					}
 				} else {
-					$("#mediaComments").append("No comments for this image.");
+					$("#mediaInfo").append("No comments for this image.");
 				}
 			} else {
 				//error ocurred...
 			}
    	}
    	
+   	function displayLikesForMedia(data) {
+   		if(data.meta.code == 200) {
+   			var likes = data.data;
+   			
+   			if (likes.length > 0) {
+   				$("#infoExport").append("<a href=\"#\" class=\"button prefix\" id=\"exportLikes\">Export</a>");
+   								
+   				$("#exportLikes").click(function() {
+   					exportLikesToCSV(likes);
+   				});
+   				
+   				for (var key in likes) {
+   					var like = likes[key];
+   					var user = like.username;
+   					var fullname = like.full_name;
+   					
+   					var str = "<div class=\"box\" id=\"" + like.id + "\">";
+   					str += "<p class=\"name\"><span class=\"title\">Full Name: </span><span class=\"contents\">" + fullname + "</span></p>";
+   					str += "<p class=\"user\"><span class=\"title\">User: </span><span class=\"contents\">" + user + "</span></p>";
+   					str += "</div>";
+   											
+   					$(str).appendTo("#mediaInfo");
+   				}
+   			} else {
+   				$("#mediaInfo").append("No comments for this image.");
+   			}
+   		} else {
+   			//error ocurred...
+   		}
+   	}
+   	
    	function exportFollowersToCSV(followers) {
    		var csv;
-   		csv = "username, fullname, id\n";
+   		csv = "FOLLOWERS:\nusername, fullname, id\n";
    		
    		for (var key in followers) {
    			var follower = followers[key];
@@ -444,7 +489,7 @@
    	
    	function exportCommentsToCSV(comments) {
    		var csv;
-   		csv = "Id,User,Fullname,Comment\n";
+   		csv = "COMMENTS:\nId,User,Fullname,Comment\n";
    		
    		for (var key in comments) {
    			var comment = comments[key];
@@ -455,11 +500,21 @@
    			csv += "\"" + comment.id + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
    			
    		}
-//	   	var csv = $table.table2CSV({delivery:'value'});
 	    window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(csv);
    	}
    	
-   	
+   	function exportLikesToCSV(likes) {
+   		var csv;
+   		csv = "LIKES:\nusername, fullname, id\n";
+   		
+   		for (var key in likes) {
+   			var like = likes[key];
+   			
+   			csv += "\"" + like.username + "\",\"" + like.full_name + "\",\"" + like.id + "\"\n";
+   		}
+   		
+   		window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(csv);
+   	}
    	
 //-------------------------------------
 // End scripts...
