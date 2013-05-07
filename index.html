@@ -71,13 +71,15 @@
 				<a href="#" class="button prefix" id="searchImage">Search</a>
 			</div>
 		</div>
+		<div class="one-third column insta" id="user">
+				<span id="foundUser" class="insta"></span>
+				<span id="foundId" class="insta"></span>
+				<span id="followerCount" class="insta"></span>
+		</div>
 		<div class="one-third column">
-			<span id="foundUser" class="insta"></span>
-			<span id="foundId" class="insta"></span>
 			<div id="mediaSearch" class="insta"></div>
 		</div>
-		<div class="one-third column insta" id="foundImg">
-		</div>
+		
 		<hr />
 		<div class="twelve columns">
 			<div id="panel" class="insta"></div>
@@ -182,23 +184,38 @@
    			var users = data.data;
    			if(users.length > 0) {
    				var user = users[0];
-   				$("#foundUser").append("<strong>User</strong>: " + user.username);
-   				$("#foundId").append("(<strong>Id</strong>: " + user.id + ")");
+   				
+   				
+   				$("#user").append("<div class=\"photo left\"><img id=\"" + user.id + "\"src=\"" + user.profile_picture + "\"></div>");
+   				
+   				$("<div class=\"right\"><h5>" + user.username + "</h5><span><strong>id</strong>: " + user.id + "</span><br/><span id=\"followerCount\"></span></div>").appendTo("#user");
+   				
+   				//TODO: probably refactor to just use this call for all user data.
+   				var params = {access_token:access_token};
+   				var cmdUrl = "https://api.instagram.com/v1/users/" + user.id + "?callback=?";
+   				$.getJSON(cmdUrl, params, getUserFollowerCount);
+
    				$("#mediaSearch").append("<a href=\"#\" class=\"button prefix\" id=\"recentMedia\">Get Recent Media</a>");
+   				$("#mediaSearch").append("<br/><a href=\"#\" class=\"button prefix\" id=\"getFollowers\">Get Followers</a>");
    				
    				$("#recentMedia").click(function() {
    					getRecentMediaByUser(user.id, displayMediaData);
    				});
+   				$("#getFollowers").click(function() {
+   					getFollowersByUserId(user.id, displayFollowerData);
+   				});
    				
-   				$("#foundImg").append("<img src=\"" + user.profile_picture + "\">");
+   				$("#" + user.id).load(function() {
+   					$("#u" + $(this).attr("id")).fadeTo("slow", 1.0);
+   				});
+   				
    			} else {
-   				$("<span class=\"round alert label\">User Not Found</span>").appendTo("#foundUser");
+   				$("<span class=\"round alert label\">User Not Found</span>").appendTo("#user");
    			}
    		} else {
-   			$("<span class=\"round alert label\">" + data.meta.error_message + "</span>").appendTo("#foundUser");
+   			$("<span class=\"round alert label\">" + data.meta.error_message + "</span>").appendTo("#user");
   		}
    	}
-   	
    	
    	
    	function getMediaById(mediaId, callback) {
@@ -214,10 +231,96 @@
    		$.getJSON(cmdUrl, param, callback);
    	}
    	
-   	function displayMediaData(data) {
+   	function getFollowersByUserId(userId, callback) {
+   		var param = {access_token:access_token};
+   		var cmdUrl = "https://api.instagram.com/v1/users/" + userId + "/followed-by?callback=?";
+   		$.getJSON(cmdUrl, param, callback);
+   	}
+   	
+   	function getUserFollowerCount(data) {
+   		
+   		if(data.meta.code == 200) {
+   			var user = data.data;
+   			$("#followerCount").empty().append("<strong>followers</strong>: " + user.counts.followed_by);
+   			return;
+   		} else {
+   			//display this if nothing is found...
+   			$("#followerCount").addClass("round alert label").empty().append('unable to get count.');
+   		}   		
+   	}
+   	
+   	function displayFollowerData(data) {
+   		$("#panel").empty();
    		if(data.meta.code == 200) {
    			var nextUrl = null;
-   			if (data.pagination != null) {
+   			var followers;
+   			if (data.pagination.next_url != null) {
+   				nextUrl = data.pagination.next_url + "&callback=?";
+   			}
+   			
+   			if( Object.prototype.toString.call( data.data ) != "[object Array]" ) {
+   			  followers = [data.data];
+   			} else {
+   				followers = data.data;
+   			}
+   			
+   			if (followers.length > 0) {
+   				for (var key in followers) {
+   					//display followers
+   					var follower = followers[key];
+   					
+   					$("<div id=f" + follower.id + "></div>").addClass("photoWrapper").appendTo("#panel");
+   					
+   					var str = "<img id=\"" + follower.id + "\" src=\"" + follower.profile_picture + "\" width=\"100%\">";
+   					$("<div></div>").addClass("photo").html(str).appendTo("#f" + follower.id);
+   					
+   					$("<h6></h6>").appendTo("#f" + follower.id+"> div");
+   				
+   					
+   					$("<span class=\"clickable\" id=\"" + follower.username +"\" data-follower-name-id=\"" + follower.username + "\">" + follower.username + "<span class='spacer'></span><br /><span class='spacer'></span>id: " + follower.id +"</span>").appendTo("#f" + follower.id+"> div > h6");
+   					
+   					$("#"+follower.username).click(function() {
+   						searchForUserWithName($(this).attr("data-follower-name-id"));
+   					});
+   					
+   					$("#" + follower.id).load(function() {
+   						$("#f" + $(this).attr("id")).fadeTo("slow", 1.0);
+   					});
+   				}
+   				
+   				if(nextUrl != null) {
+   					if (nextUrl.length > 0) {
+   						var prev = "";
+   						var next = "<a href=\"#\" id=\"nextLink\"class=\"button\">Next</a>";
+   						
+   						$("<div class=\"left\"  id=\"pagination\"></div>").appendTo("#panel");
+   						$("#pagination").append(next);
+   						
+   						$("#nextLink").click(function() {
+   							$.getJSON(nextUrl, displayFollowerData);
+   						});
+   					}
+   				}
+   			} else {
+   				//TODO: No followers...
+   			}
+   		} else {
+   			var error_msg = data.meta.error_message;
+   			$("<span class=\"round alert label\">" + error_msg + "</span>").appendTo("#panel");
+   		}
+   	}
+   	
+   	function searchForUserWithName(userName) {
+   		$('#userName').val(userName);	
+   		clearContent(Action.USER_ID_SEARCH);
+   		searchForUser(userName);
+   	}
+   	
+   	function displayMediaData(data) {
+   		$("#panel").empty();
+   		if(data.meta.code == 200) {
+   			var nextUrl = null;
+   			if (data.pagination.next_url != null) {
    				nextUrl = data.pagination.next_url + "&callback=?";
    			}
    			
@@ -262,16 +365,17 @@
 	   					$("#pagination").append(next);
 	   					
 	   					$("#nextLink").click(function() {
-	   						clearContent();
 		   					$.getJSON(nextUrl, displayMediaData);
 	   					});
    					}
    				}
    			} else {
-   				//something
+   				//something - no photos
    			}
    		} else {
-   			//something
+   			//TOD: Error occured 
+   			var error_msg = data.meta.error_message;
+   			$("<span class=\"round alert label\">" + error_msg + "</span>").appendTo("#panel");
    		}
    	}
    	
@@ -318,6 +422,8 @@
 				//error ocurred...
 			}
    	}
+   	
+   	
    	
    	function exportCommentsToCSV(comments) {
    		var csv;
