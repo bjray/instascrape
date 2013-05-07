@@ -288,6 +288,12 @@
    					});
    				}
    				
+   				$("#panel").append("<a href=\"#\" class=\"button prefix\" id=\"exportFollowers\">Export Followers</a>");
+   								
+   				$("#exportFollowers").click(function() {
+   					exportFollowersToCSV(followers);
+   				});
+   				
    				if(nextUrl != null) {
    					if (nextUrl.length > 0) {
    						var prev = "";
@@ -423,7 +429,18 @@
 			}
    	}
    	
-   	
+   	function exportFollowersToCSV(followers) {
+   		var csv;
+   		csv = "username, fullname, id\n";
+   		
+   		for (var key in followers) {
+   			var follower = followers[key];
+   			
+   			csv += "\"" + follower.username + "\",\"" + follower.full_name + "\",\"" + follower.id + "\"\n";
+   		}
+   		
+   		window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(csv);
+   	}
    	
    	function exportCommentsToCSV(comments) {
    		var csv;
