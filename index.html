@@ -42,7 +42,6 @@
 <body>
 
 
-
 	<!-- Primary Page Layout
 	================================================== -->
 
@@ -107,6 +106,8 @@
    	
    	//initializing variables...
    	var access_token = '23196669.1fb234f.bc3cae7446e549e0907701de12888236';
+   	var user_list = '';
+   	
    	
    	var Action = {
    		USER_ID_SEARCH: 0,
@@ -155,6 +156,7 @@
    		if (hashVal.length > 0) {
    			clearContent(Action.HASHTAG_SEARCH);
    			getMediaByHashtag(hashVal, displayMediaData);
+   			user_list = "Users:\ncreated_time, username, fullname, id\n";
    		} else {
    			$("#foundId").append("<span class=\"round alert label\">Image Invalid</span>");
    		}
@@ -352,11 +354,20 @@
    	
    	function displayMediaData(data) {
    		$("#panel").empty();
+   		var isHashTagSearch = false;
+   		if ($("#hashtag").val().length > 0) {
+   			isHashTagSearch = true;
+   		}
+   		
+   		
    		if(data.meta.code == 200) {
    			var nextUrl = null;
-   			if (data.pagination.next_url != null) {
-   				nextUrl = data.pagination.next_url + "&callback=?";
+   			if (data.pagination != null) {
+   				if (data.pagination.next_url != null) {
+   					nextUrl = data.pagination.next_url + "&callback=?";
+   				}
    			}
+   			
    			
 				if( Object.prototype.toString.call( data.data ) != "[object Array]" ) {
 				  photos = [data.data];
@@ -375,33 +386,50 @@
    					str += "<img id=\"" + photo.id + "\" src=\"" + photo.images.thumbnail.url + "\" width=\"100%\"></a>";
    					$("<div></div>").addClass("photo").html(str).appendTo("#p" + photo.id);
    					
-
+						
+						
    					str = 'comments: ' + photo.comments.count;   					
    					$("<span class=\"clickable\" data-photo-id=\"" + photo.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
-//   							Can't fugure out why every click action sends the same object...
-//   							displayInfoForMedia(photo);
-//   							
-   							getCommentsForMedia($(this).attr("data-photo-id"));
+   							getCommentsForMedia($(this).attr("data-photo-id"), photo.caption.text);
    					});
    					
    					str = 'likes: ' + photo.likes.count;
    					$("<br /><span class=\"clickable\" data-photo-id=\"" + photo.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
    							getLikesForMedia($(this).attr("data-photo-id"));
+   					});
+   		
+   					str = 'user: ' + photo.user.username;
+   					$("<br /><span class=\"clickable\" data-user-id=\"" + photo.user.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
+   							getLikesForMedia($(this).attr("data-user-id"));
    					}); 
+   					
+   					//TODO:
+   					if (isHashTagSearch) {
+   						appendUsersForMedia(photo.created_time, photo.user);
+   					}
    					
    					
    					$("#" + photo.id).load(function() {
    						$("#p" + $(this).attr("id")).fadeTo("slow", 1.0);
    					});
    				}
-
+   				
+   				// add export list button
+   				$("<div class=\"left\"  id=\"panelFooter\"></div>").appendTo("#panel");
+   				
+   				$("<a href=\"#\" id=\"exportListUser\"class=\"button\">Export Users</a>").appendTo("#panelFooter");
+   				$("#exportListUser").click(function() {
+   						exportUsersToCSV(user_list);
+   				});
+   				
+   				
+					// add paging capability
    				if(nextUrl != null) {
    					if (nextUrl.length > 0) {
 	   					var prev = "";
-	   					var next = "<a href=\"#\" id=\"nextLink\"class=\"button\">Next</a>";
+	   					var next = "&nbsp;<a href=\"#\" id=\"nextLink\"class=\"button\">Next</a>";
 	   					
-	   					$("<div class=\"left\"  id=\"pagination\"></div>").appendTo("#panel");
-	   					$("#pagination").append(next);
+	   					$("#panelFooter").append(next);
 	   					
 	   					$("#nextLink").click(function() {
 		   					$.getJSON(nextUrl, displayMediaData);
@@ -428,11 +456,13 @@
    	}
    	
    	
-   	function getCommentsForMedia(id) {
+   	function getCommentsForMedia(id, description) {
    		//clear
    		$('#mediaInfo').empty();
    		$('#infoExport').empty();
    		$('<h5>' + id + '</h5>').appendTo('#mediaInfo');
+   		$('<div id=\"captionText\">' + description +  '</div>').appendTo('#mediaInfo');
+   		alert("desc: " + description);
 	   	var param = {access_token:access_token};
   	 	var cmdUrl = 'https://api.instagram.com/v1/media/' + id + '/comments?callback=?';
    		$.getJSON(cmdUrl, param, displayCommentsForMedia);
@@ -502,6 +532,25 @@
    		}
    	}
    	
+   	function appendUsersForMedia(createdTime, data) {
+   		user_list += "\"" + createdTime + "\",\"" + data.username + "\",\"" + data.full_name + "\",\"" + data.id + "\"\n";
+   		
+   		var str = "<div class=\"box\" id=\"" + data.id + "\">";
+   		str += "<span class=\"title\">Created Time: </span><span class=\"contents\">" + createdTime + "</span><br/>";
+   		str += "<span class=\"title\">Full Name: </span><span class=\"contents\">" + data.full_name + "</span><br/>";
+   		str += "<span class=\"title\">User: </span><span class=\"contents\">" + data.username + "</span>";
+   		str += "</div>";
+   								
+   		$(str).appendTo("#mediaInfo");
+   		   		
+   		//console.log(data);
+
+   	}
+   	
+   	function exportUsersToCSV(data) {
+   		window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(data);
+   	}
+   	
    	function exportFollowersToCSV(followers) {
    		var csv;
    		csv = "FOLLOWERS:\nusername, fullname, id\n";
@@ -517,7 +566,9 @@
    	
    	function exportCommentsToCSV(comments) {
    		var csv;
-   		csv = "COMMENTS:\nId,User,Fullname,Comment\n";
+   		var captionText = $("#captionText").text();
+   		csv = captionText + "\n";
+   		csv += "COMMENTS:\nId,User,Fullname,Comment\n";
    		
    		for (var key in comments) {
    			var comment = comments[key];
