@@ -74,6 +74,10 @@
 				<input type="text" name="hashtag" id="hashtag" placeholder="hashtag..." />
 				<a href="#" class="button prefix" id="searchHashtag">Search</a>
 			</div>
+			<div>
+				<input type="text" name="maxValue" id="maxValue" placeholder="max value..." />
+				<a href="#" class="button prefix" id="random">Get Random Number</a>
+			</div>
 		</div>
 		<div class="one-third column insta" id="user">
 				<span id="foundUser" class="insta"></span>
@@ -132,6 +136,11 @@
 			}
    	});
    	
+   	$("#random").click(function() {
+   		var range = $("#maxValue").val();
+   		getRandom(range);
+   	});
+   	
    	$("body").on({
    	    ajaxStart: function() { 
    	        $(this).addClass("loading"); 
@@ -165,6 +174,11 @@
 //-------------------------------------
 // start method declarations...
 //-------------------------------------
+		function getRandom(max) {
+			var result = 1+Math.floor(Math.random() * max);
+			alert(result);
+		}
+		
    	function clearContent(exclude) {
    		$('.insta').each(function() {
    			$(this).empty();
@@ -380,6 +394,15 @@
    				
    				for(var key in photos) {
    					var photo = photos[key];
+   					var caption = photo.caption;
+   					var photoText;
+   					
+   					if (caption) {
+   						photoText = caption.text;
+   					} else {
+   						photoText = "";
+   					}
+   					//console.log(caption);
    					$("<div id=p" + photo.id + "></div>").addClass("photoWrapper").appendTo("#panel");
    					
    					var str = "<a href=\"" + photo.images.standard_resolution.url + "\" rel=\"lightbox\">";       
@@ -388,9 +411,9 @@
    					
 						
 						
-   					str = 'comments: ' + photo.comments.count;   					
-   					$("<span class=\"clickable\" data-photo-id=\"" + photo.id + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
-   							getCommentsForMedia($(this).attr("data-photo-id"), photo.caption.text);
+   					str = 'comments: ' + photo.comments.count;
+   					$("<span class=\"clickable\" data-photo-id=\"" + photo.id + "\" data-caption-text=\"" + photoText + "\"></span>").html(str).appendTo("#p" + photo.id).click(function() {
+   							getCommentsForMedia($(this).attr("data-photo-id"), $(this).attr("data-caption-text"));
    					});
    					
    					str = 'likes: ' + photo.likes.count;
@@ -462,7 +485,6 @@
    		$('#infoExport').empty();
    		$('<h5>' + id + '</h5>').appendTo('#mediaInfo');
    		$('<div id=\"captionText\">' + description +  '</div>').appendTo('#mediaInfo');
-   		alert("desc: " + description);
 	   	var param = {access_token:access_token};
   	 	var cmdUrl = 'https://api.instagram.com/v1/media/' + id + '/comments?callback=?';
    		$.getJSON(cmdUrl, param, displayCommentsForMedia);
@@ -567,8 +589,8 @@
    	function exportCommentsToCSV(comments) {
    		var csv;
    		var captionText = $("#captionText").text();
-   		csv = captionText + "\n";
-   		csv += "COMMENTS:\nId,User,Fullname,Comment\n";
+//   		csv = captionText + "\n";
+   		csv = "Description,Comment_Id,User,Fullname,Comment\n";
    		
    		for (var key in comments) {
    			var comment = comments[key];
@@ -576,7 +598,7 @@
    			var fullname = comment.from.full_name;
    			var text = comment.text;
    			
-   			csv += "\"" + comment.id + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
+   			csv += "\"" + captionText + "\",\"" + comment.id + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
    			
    		}
 	    window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(csv);
