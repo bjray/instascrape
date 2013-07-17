@@ -590,15 +590,22 @@
    		var csv;
    		var captionText = $("#captionText").text();
 //   		csv = captionText + "\n";
-   		csv = "Description,Comment_Id,User,Fullname,Comment\n";
+   		csv = "Description,UserId,User,Fullname,Comment\n";
+   		var comment = "";
+   		var user = "";
+   		var userId = "";
+   		var fullname = "";
+   		var text = "";
    		
    		for (var key in comments) {
-   			var comment = comments[key];
-   			var user = comment.from.username;
-   			var fullname = comment.from.full_name;
-   			var text = comment.text;
+   			comment = comments[key];
+   			user = comment.from.username;
+   			userId = comment.from.id;
+   			fullname = comment.from.full_name;
+   			text = comment.text;
    			
-   			csv += "\"" + captionText + "\",\"" + comment.id + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
+   			//csv += "\"" + captionText + "\",\"" + comment.id + "\",\"" + userId + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
+   			csv += "\"" + captionText + "\",\"" + userId + "\",\"" + user + "\",\"" + fullname + "\",\"" + text + "\"\n";
    			
    		}
 	    window.location.href = 'data:text/csv;charset=UTF-8,' + encodeURIComponent(csv);
